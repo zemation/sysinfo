@@ -31,7 +31,7 @@ var processesCPUCmd = &cobra.Command{
 		fmt.Printf("%-10s %-8s %s\n", "PID", "CPU%", "COMMAND")
 		fmt.Println("-------------------------------")
 		for _, p := range procs {
-			fmt.Printf("%-10s %-8s %s\n", p.PID, p.CPU, p.Command)
+			fmt.Printf("%-10s %-8s %s\n", p.PID, system.Colorize(p.CPU, 70, 90), p.Command)
 		}
 	},
 }
@@ -53,7 +53,7 @@ var processesMemCmd = &cobra.Command{
 		fmt.Printf("%-10s %-8s %s\n", "PID", "MEM%", "COMMAND")
 		fmt.Println("-------------------------------")
 		for _, p := range procs {
-			fmt.Printf("%-10s %-8s %s\n", p.PID, p.Memory, p.Command)
+			fmt.Printf("%-10s %-8s %s\n", p.PID, system.Colorize(p.Memory, 70, 90), p.Command)
 		}
 	},
 }

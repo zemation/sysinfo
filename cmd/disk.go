@@ -24,7 +24,7 @@ var diskCmd = &cobra.Command{
 		fmt.Printf("%-20s %-10s %-10s %-10s %s\n", "MOUNT", "TOTAL", "USED", "FREE", "USE%")
 		fmt.Println("------------------------------------------------------")
 		for _, d := range disks {
-			fmt.Printf("%-20s %-10s %-10s %-10s %s\n", d.Mount, d.Total, d.Used, d.Free, d.Percent)
+			fmt.Printf("%-20s %-10s %-10s %-10s %s\n", d.Mount, d.Total, d.Used, d.Free, system.Colorize(d.Percent, 70, 90))
 		}
 	},
 }

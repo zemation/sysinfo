@@ -63,6 +63,23 @@ Available on all commands:
 sysinfo processes --count, -c    Number of processes to show (default 5)
 ```
 
+## Color Output
+
+When running in a terminal, sysinfo color codes usage values automatically:
+
+| Color | Meaning |
+|---|---|
+| 🟢 Green | Normal — below 70% |
+| 🟡 Yellow | Warning — above 70% |
+| 🔴 Red | Critical — above 90% |
+
+Color applies to:
+- `sysinfo disk` — USE% column
+- `sysinfo processes cpu` — CPU% column
+- `sysinfo processes memory` — MEM% column
+
+Color is automatically disabled when piping output or redirecting to a file so it does not interfere with tools like `jq`.
+
 ## Usage Examples
 
 ```bash
@@ -90,7 +107,7 @@ sysinfo network ports
 # Requires sudo for full port ownership output
 sudo sysinfo network ports
 
-# JSON output
+# JSON output (color disabled automatically)
 sysinfo --json
 sysinfo disk --json
 sysinfo processes cpu --count 10 --json
@@ -114,6 +131,7 @@ sysinfo/
 │   └── network.go       # sysinfo network
 └── system/
     ├── info.go          # System info functions
+    ├── color.go         # ANSI color output helpers
     ├── disk.go          # Disk mount functions
     ├── processes.go     # Process listing and sorting
     └── network.go       # Network interface and port functions
@@ -186,6 +204,5 @@ Windows requires a different approach — WMI (Windows Management Instrumentatio
 | macOS support | Build tag based macOS implementation | High |
 | Windows support | WMI based Windows implementation | Medium |
 | `sysinfo network ports --all` | Show all ports not just listening | Low |
-| Color output | Highlight high CPU/memory/disk usage | Low |
 | `sysinfo watch` | Refresh output on an interval like watch | Low |
 | GitHub Actions | Auto build and release binaries for all platforms | Medium |
