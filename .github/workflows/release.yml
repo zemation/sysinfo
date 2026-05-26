@@ -40,7 +40,9 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: go build -o ${{ matrix.binary }} main.go
 
-      - name: Upload binary to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ matrix.binary }}
+      - name: Create release and upload binary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} --generate-notes || true
+          gh release upload ${{ github.ref_name }} ${{ matrix.binary }} --clobber
