@@ -43,24 +43,24 @@ sudo mv sysinfo /usr/local/bin/
 | `sysinfo` | System overview |
 | `sysinfo all` | All information in one output |
 | `sysinfo disk` | Disk usage per mount point |
-| `sysinfo processes cpu` | Top 5 processes by CPU usage |
-| `sysinfo processes memory` | Top 5 processes by memory usage |
+| `sysinfo processes cpu` | Top processes by CPU usage |
+| `sysinfo processes memory` | Top processes by memory usage |
 | `sysinfo network interfaces` | Network interfaces, IPs, RX/TX stats |
 | `sysinfo network ports` | Listening ports and owning processes |
 
-## Global Flags
+## Flags
+
+### Global Flags
+Available on all commands:
 
 ```
 --json, -j    Output as JSON
 ```
 
-Works on all commands:
+### Command Flags
 
-```bash
-sysinfo --json
-sysinfo disk --json
-sysinfo processes cpu --json
-sysinfo network interfaces --json
+```
+sysinfo processes --count, -c    Number of processes to show (default 5)
 ```
 
 ## Usage Examples
@@ -75,9 +75,13 @@ sysinfo all
 # Disk usage per mount
 sysinfo disk
 
-# Top processes
+# Top processes (default 5)
 sysinfo processes cpu
 sysinfo processes memory
+
+# Custom process count
+sysinfo processes cpu --count 10
+sysinfo processes memory -c 3
 
 # Network
 sysinfo network interfaces
@@ -85,6 +89,12 @@ sysinfo network ports
 
 # Requires sudo for full port ownership output
 sudo sysinfo network ports
+
+# JSON output
+sysinfo --json
+sysinfo disk --json
+sysinfo processes cpu --count 10 --json
+sysinfo network interfaces --json
 
 # Pipe JSON to jq
 sysinfo --json | jq '.cpu'
@@ -176,7 +186,6 @@ Windows requires a different approach — WMI (Windows Management Instrumentatio
 | macOS support | Build tag based macOS implementation | High |
 | Windows support | WMI based Windows implementation | Medium |
 | `sysinfo network ports --all` | Show all ports not just listening | Low |
-| `--count` flag | Allow custom process count (default 5) | Low |
 | Color output | Highlight high CPU/memory/disk usage | Low |
 | `sysinfo watch` | Refresh output on an interval like watch | Low |
 | GitHub Actions | Auto build and release binaries for all platforms | Medium |
