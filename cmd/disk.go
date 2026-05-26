@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/zemation/sysinfo/system"
@@ -13,6 +14,11 @@ var diskCmd = &cobra.Command{
 		disks, err := system.GetDiskMounts()
 		if err != nil {
 			fmt.Println("Error:", err)
+			return
+		}
+		if jsonOutput {
+			out, _ := json.MarshalIndent(disks, "", "  ")
+			fmt.Println(string(out))
 			return
 		}
 		fmt.Printf("%-20s %-10s %-10s %-10s %s\n", "MOUNT", "TOTAL", "USED", "FREE", "USE%")

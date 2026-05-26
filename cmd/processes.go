@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/zemation/sysinfo/system"
@@ -20,6 +21,11 @@ var processesCPUCmd = &cobra.Command{
 			fmt.Println("Error:", err)
 			return
 		}
+		if jsonOutput {
+			out, _ := json.MarshalIndent(procs, "", "  ")
+			fmt.Println(string(out))
+			return
+		}
 		fmt.Printf("%-10s %-8s %s\n", "PID", "CPU%", "COMMAND")
 		fmt.Println("-------------------------------")
 		for _, p := range procs {
@@ -35,6 +41,11 @@ var processesMemCmd = &cobra.Command{
 		procs, err := system.GetTopProcessesByMemory(5)
 		if err != nil {
 			fmt.Println("Error:", err)
+			return
+		}
+		if jsonOutput {
+			out, _ := json.MarshalIndent(procs, "", "  ")
+			fmt.Println(string(out))
 			return
 		}
 		fmt.Printf("%-10s %-8s %s\n", "PID", "MEM%", "COMMAND")
