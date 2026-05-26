@@ -5,7 +5,7 @@ A lightweight system information CLI tool written in Go. No external dependencie
 ## Example Output
 
 ```
-Host:    sam.example.com
+Host:    host.example.com
 IP:      192.168.0.10
 OS:      Rocky Linux 10.1 (Red Quartz)
 Kernel:  6.12.0-124.56.1.el10_1.x86_64
