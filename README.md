@@ -22,17 +22,34 @@ Load:    0.08, 0.13, 0.12 (1, 5, 15 min)
 - Go 1.20 or higher
 - Linux (macOS and Windows support planned — see Roadmap)
 
-## Build
+## Download
+
+Pre-built binaries are available on the [Releases](https://github.com/zemation/sysinfo/releases/latest) page.
+
+| Binary | OS | Architecture |
+|---|---|---|
+| sysinfo-linux-amd64 | Linux | x86_64 (64-bit) |
+| sysinfo-linux-arm64 | Linux | ARM64 (Raspberry Pi, etc) |
+
+### Install from release
+
+```bash
+# Download the binary for your architecture
+curl -LO https://github.com/zemation/sysinfo/releases/latest/download/sysinfo-linux-amd64
+
+# Make it executable
+chmod +x sysinfo-linux-amd64
+
+# Install system-wide
+sudo mv sysinfo-linux-amd64 /usr/local/bin/sysinfo
+```
+
+## Build from Source
 
 ```bash
 git clone https://github.com/zemation/sysinfo.git
 cd sysinfo
 go build -o sysinfo main.go
-```
-
-## Install
-
-```bash
 sudo mv sysinfo /usr/local/bin/
 ```
 
@@ -196,13 +213,3 @@ Windows requires a different approach — WMI (Windows Management Instrumentatio
 | Load | Not natively available on Windows |
 | Processes | WMI Win32_Process |
 | Network ports | netstat via WMI or net.tcp registry |
-
-### Planned Features
-
-| Feature | Description | Priority |
-|---|---|---|
-| macOS support | Build tag based macOS implementation | High |
-| Windows support | WMI based Windows implementation | Medium |
-| `sysinfo network ports --all` | Show all ports not just listening | Low |
-| `sysinfo watch` | Refresh output on an interval like watch | Low |
-| GitHub Actions | Auto build and release binaries for all platforms | Medium |
