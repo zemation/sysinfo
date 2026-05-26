@@ -7,6 +7,8 @@ import (
 	"github.com/zemation/sysinfo/system"
 )
 
+var count int
+
 var processesCmd = &cobra.Command{
 	Use:   "processes",
 	Short: "Show top processes by resource usage",
@@ -14,9 +16,9 @@ var processesCmd = &cobra.Command{
 
 var processesCPUCmd = &cobra.Command{
 	Use:   "cpu",
-	Short: "Show top 5 processes by CPU usage",
+	Short: "Show top processes by CPU usage",
 	Run: func(cmd *cobra.Command, args []string) {
-		procs, err := system.GetTopProcessesByCPU(5)
+		procs, err := system.GetTopProcessesByCPU(count)
 		if err != nil {
 			fmt.Println("Error:", err)
 			return
@@ -36,9 +38,9 @@ var processesCPUCmd = &cobra.Command{
 
 var processesMemCmd = &cobra.Command{
 	Use:   "memory",
-	Short: "Show top 5 processes by memory usage",
+	Short: "Show top processes by memory usage",
 	Run: func(cmd *cobra.Command, args []string) {
-		procs, err := system.GetTopProcessesByMemory(5)
+		procs, err := system.GetTopProcessesByMemory(count)
 		if err != nil {
 			fmt.Println("Error:", err)
 			return
@@ -60,4 +62,5 @@ func init() {
 	processesCmd.AddCommand(processesCPUCmd)
 	processesCmd.AddCommand(processesMemCmd)
 	rootCmd.AddCommand(processesCmd)
+	processesCmd.PersistentFlags().IntVarP(&count, "count", "c", 5, "Number of processes to show")
 }
