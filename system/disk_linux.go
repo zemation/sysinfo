@@ -1,3 +1,5 @@
+//go:build linux
+
 package system
 
 import (
@@ -7,14 +9,6 @@ import (
 	"strings"
 	"syscall"
 )
-
-type DiskInfo struct {
-	Mount   string
-	Total   string
-	Used    string
-	Free    string
-	Percent string
-}
 
 func GetDiskMounts() ([]DiskInfo, error) {
 	file, err := os.Open("/proc/mounts")
@@ -36,12 +30,10 @@ func GetDiskMounts() ([]DiskInfo, error) {
 		device := fields[0]
 		mount := fields[1]
 
-		// skip non-real filesystems
 		if !strings.HasPrefix(device, "/") {
 			continue
 		}
 
-		// skip duplicates
 		if seen[mount] {
 			continue
 		}
