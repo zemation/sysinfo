@@ -1,3 +1,5 @@
+//go:build linux
+
 package system
 
 import (
@@ -9,23 +11,12 @@ import (
 	"strings"
 )
 
-type Process struct {
-	PID     string
-	Command string
-	CPU     string
-	Memory  string
-}
-
 func getProcessList() ([]Process, error) {
 	var processes []Process
 
-	// Read total memory for percentage calculation
 	memTotal := getTotalMemoryKB()
-
-	// Read total CPU time for percentage calculation
 	totalCPU := getTotalCPUTime()
 
-	// Walk /proc looking for numeric directories (PIDs)
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, err
@@ -38,12 +29,12 @@ func getProcessList() ([]Process, error) {
 
 		pid := entry.Name()
 		if _, err := strconv.Atoi(pid); err != nil {
-			continue // skip non-numeric entries
+			continue
 		}
 
 		proc, err := readProcess(pid, memTotal, totalCPU)
 		if err != nil {
-			continue // process may have ended
+			continue
 		}
 		processes = append(processes, proc)
 	}
@@ -52,7 +43,6 @@ func getProcessList() ([]Process, error) {
 }
 
 func readProcess(pid string, memTotal float64, totalCPU float64) (Process, error) {
-	// Read command name
 	commPath := filepath.Join("/proc", pid, "comm")
 	commBytes, err := os.ReadFile(commPath)
 	if err != nil {
@@ -60,7 +50,6 @@ func readProcess(pid string, memTotal float64, totalCPU float64) (Process, error
 	}
 	command := strings.TrimSpace(string(commBytes))
 
-	// Read stat file for CPU and memory info
 	statPath := filepath.Join("/proc", pid, "stat")
 	statBytes, err := os.ReadFile(statPath)
 	if err != nil {
@@ -72,14 +61,12 @@ func readProcess(pid string, memTotal float64, totalCPU float64) (Process, error
 		return Process{}, fmt.Errorf("unexpected stat format")
 	}
 
-	// Fields 13 and 14 are utime and stime (CPU time in ticks)
 	utime, _ := strconv.ParseFloat(fields[13], 64)
 	stime, _ := strconv.ParseFloat(fields[14], 64)
 	processCPU := utime + stime
 
-	// Field 23 is RSS (resident set size in pages)
 	rss, _ := strconv.ParseFloat(fields[23], 64)
-	memBytes := rss * 4096 // convert pages to bytes
+	memBytes := rss * 4096
 	memPercent := (memBytes / 1024 / (memTotal)) * 100
 
 	cpuPercent := 0.0

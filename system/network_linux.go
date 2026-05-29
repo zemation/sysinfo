@@ -1,3 +1,5 @@
+//go:build linux
+
 package system
 
 import (
@@ -8,21 +10,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-type NetworkInterface struct {
-	Name string
-	IP   string
-	RX   string
-	TX   string
-}
-
-type PortInfo struct {
-	Port    string
-	Proto   string
-	State   string
-	PID     string
-	Command string
-}
 
 func GetNetworkInterfaces() ([]NetworkInterface, error) {
 	ifaces, err := net.Interfaces()
@@ -114,7 +101,7 @@ func parseProcNet(path, proto string) ([]PortInfo, error) {
 
 	var ports []PortInfo
 	scanner := bufio.NewScanner(file)
-	scanner.Scan() // skip header line
+	scanner.Scan()
 
 	for scanner.Scan() {
 		fields := strings.Fields(scanner.Text())
@@ -122,13 +109,11 @@ func parseProcNet(path, proto string) ([]PortInfo, error) {
 			continue
 		}
 
-		// state 0A = LISTEN, 07 = CLOSE, 01 = ESTABLISHED
 		state := fields[3]
 		if state != "0A" {
-			continue // only show listening ports
+			continue
 		}
 
-		// local address is field 1, format is hex ip:hex port
 		localAddr := fields[1]
 		portHex := strings.Split(localAddr, ":")[1]
 		portNum, err := strconv.ParseInt(portHex, 16, 32)

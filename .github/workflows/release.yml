@@ -9,7 +9,7 @@ on:
       tag:
         description: 'Release tag'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.1.0'
 
 permissions:
   contents: write
@@ -38,6 +38,8 @@ jobs:
           |---|---|---|
           | sysinfo-linux-amd64 | Linux | x86_64 (64-bit) |
           | sysinfo-linux-arm64 | Linux | ARM64 (Raspberry Pi, etc) |
+          | sysinfo-darwin-amd64 | macOS | Intel (x86_64) |
+          | sysinfo-darwin-arm64 | macOS | Apple Silicon (M1/M2/M3) |
 
           ## Install
           \`\`\`bash
@@ -61,6 +63,12 @@ jobs:
           - goos: linux
             goarch: arm64
             binary: sysinfo-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            binary: sysinfo-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            binary: sysinfo-darwin-arm64
 
     steps:
       - name: Checkout code
