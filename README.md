@@ -30,6 +30,8 @@ Pre-built binaries are available on the [Releases](https://github.com/zemation/s
 |---|---|---|
 | sysinfo-linux-amd64 | Linux | x86_64 (64-bit) |
 | sysinfo-linux-arm64 | Linux | ARM64 (Raspberry Pi, etc) |
+| sysinfo-darwin-amd64 | macOS | Intel (x86_64) |
+| sysinfo-darwin-arm64 | macOS | Apple Silicon (M1/M2/M3) |
 
 ### Install from release
 
