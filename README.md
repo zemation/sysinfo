@@ -184,24 +184,9 @@ Currently sysinfo is Linux-only. The plan is to add macOS and Windows support us
 ```
 system/
 ├── info_linux.go       # current implementation
-├── info_darwin.go      # macOS implementation (planned)
+├── info_darwin.go      # macOS implementation
 └── info_windows.go     # Windows implementation (planned)
 ```
-
-#### macOS
-macOS is the closer port. Most functionality can be implemented using `sysctl` system calls and `/usr/bin/sw_vers`. Disk usage already works since macOS supports `syscall.Statfs`.
-
-| Feature | Approach |
-|---|---|
-| OS / Kernel | sw_vers + uname |
-| CPU | sysctl hw.model, hw.logicalcpu |
-| Memory | sysctl hw.memsize, vm.page_free_count |
-| Disk | syscall.Statfs (already works) |
-| Uptime | sysctl kern.boottime |
-| Load | sysctl vm.loadavg |
-| Processes | sysctl + kinfo_proc |
-| Network ports | net.inet.tcp (sysctl) |
-
 #### Windows
 Windows requires a different approach — WMI (Windows Management Instrumentation) via the `github.com/StackExchange/wmi` package for most system data.
 
