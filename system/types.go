@@ -29,3 +29,11 @@ type Process struct {
 	CPU     string
 	Memory  string
 }
+
+type GPUInfo struct {
+	Name          string
+	DriverVersion string
+	MemoryTotal   string
+	MemoryUsed    string
+	Utilization   string
+}

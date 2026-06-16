@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/zemation/sysinfo/system"
 )
@@ -19,6 +20,7 @@ type SystemInfo struct {
 	Disk     string `json:"disk"`
 	Uptime   string `json:"uptime"`
 	Load     string `json:"load"`
+	GPU      string `json:"gpu"`
 }
 
 var jsonOutput bool
@@ -29,6 +31,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		distro, kernel := system.GetOSInfo()
 		memTotal, memUsed := system.GetMemory()
+		gpu := system.GetGPUInfo()
 
 		if jsonOutput {
 			info := SystemInfo{
@@ -43,6 +46,7 @@ var rootCmd = &cobra.Command{
 				Disk:     system.GetDisk(),
 				Uptime:   system.GetUptime(),
 				Load:     system.GetLoadAverage(),
+				GPU:      gpu.Name,
 			}
 			out, _ := json.MarshalIndent(info, "", "  ")
 			fmt.Println(string(out))
@@ -59,6 +63,7 @@ var rootCmd = &cobra.Command{
 		fmt.Println("Disk:   ", system.GetDisk())
 		fmt.Println("Uptime: ", system.GetUptime())
 		fmt.Println("Load:   ", system.GetLoadAverage())
+		fmt.Println("GPU:    ", gpu.Name)
 	},
 }
 
