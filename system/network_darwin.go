@@ -66,17 +66,6 @@ func getInterfaceStats(name string) (rx, tx string) {
 	return formatBytes(rxBytes), formatBytes(txBytes)
 }
 
-func formatBytes(bytes float64) string {
-	if bytes >= 1024*1024*1024 {
-		return fmt.Sprintf("%.1f GB", bytes/1024/1024/1024)
-	} else if bytes >= 1024*1024 {
-		return fmt.Sprintf("%.1f MB", bytes/1024/1024)
-	} else if bytes >= 1024 {
-		return fmt.Sprintf("%.1f KB", bytes/1024)
-	}
-	return fmt.Sprintf("%.0f B", bytes)
-}
-
 func GetListeningPorts() ([]PortInfo, error) {
 	var ports []PortInfo
 

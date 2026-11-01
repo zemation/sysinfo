@@ -5,20 +5,19 @@ package system
 import (
 	"fmt"
 	"os/exec"
-	"sort"
-	"strconv"
+	"path/filepath"
 	"strings"
 )
 
 func getProcessList() ([]Process, error) {
-	out, err := exec.Command("ps", "axo", "pid,%cpu,%mem,comm").Output()
+	out, err := exec.Command("ps", "axo", "pid=,%cpu=,%mem=,comm=").Output()
 	if err != nil {
 		return nil, err
 	}
 
 	var processes []Process
 	lines := strings.Split(string(out), "\n")
-	for _, line := range lines[1:] {
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -31,10 +30,8 @@ func getProcessList() ([]Process, error) {
 		pid := fields[0]
 		cpu := fields[1]
 		mem := fields[2]
-		name := fields[3]
-
-		parts := strings.Split(name, "/")
-		name = parts[len(parts)-1]
+		name := strings.Join(fields[3:], " ")
+		name = filepath.Base(name)
 
 		processes = append(processes, Process{
 			PID:     pid,
@@ -45,40 +42,4 @@ func getProcessList() ([]Process, error) {
 	}
 
 	return processes, nil
-}
-
-func GetTopProcessesByCPU(n int) ([]Process, error) {
-	procs, err := getProcessList()
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(procs, func(i, j int) bool {
-		iVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[i].CPU, "%"), 64)
-		jVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[j].CPU, "%"), 64)
-		return iVal > jVal
-	})
-
-	if len(procs) > n {
-		procs = procs[:n]
-	}
-	return procs, nil
-}
-
-func GetTopProcessesByMemory(n int) ([]Process, error) {
-	procs, err := getProcessList()
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(procs, func(i, j int) bool {
-		iVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[i].Memory, "%"), 64)
-		jVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[j].Memory, "%"), 64)
-		return iVal > jVal
-	})
-
-	if len(procs) > n {
-		procs = procs[:n]
-	}
-	return procs, nil
 }

@@ -4,34 +4,11 @@ package system
 
 import (
 	"fmt"
-	"net"
-	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 )
-
-func GetHostname() string {
-	hostname, _ := os.Hostname()
-	return hostname
-}
-
-func GetIPAddress() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "unknown"
-	}
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return "unknown"
-}
 
 func GetOSInfo() (distro, kernel string) {
 	name := swvers("ProductName")
@@ -175,10 +152,6 @@ func GetLoadAverage() string {
 		return "unknown"
 	}
 	return fmt.Sprintf("%s, %s, %s (1, 5, 15 min)", fields[0], fields[1], fields[2])
-}
-
-func GetArch() string {
-	return runtime.GOARCH
 }
 
 func sysctlString(name string) string {

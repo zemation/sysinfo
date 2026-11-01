@@ -1,6 +1,6 @@
 # sysinfo
 
-A lightweight system information CLI tool written in Go. No external dependencies for data collection — reads directly from Linux virtual filesystems.
+A lightweight, cross-platform system information CLI tool written in Go. Minimal external dependencies — reads directly from Linux virtual filesystems, macOS system utilities/syscalls, and Windows Win32 APIs.
 
 ## Example Output
 
@@ -15,12 +15,13 @@ Memory:  5.4 GB / 31.0 GB
 Disk:    41.0 GB / 69.9 GB
 Uptime:  10 days, 20 hours, 28 minutes
 Load:    0.08, 0.13, 0.12 (1, 5, 15 min)
+GPU:     NVIDIA GeForce RTX 3080
 ```
 
 ## Requirements
 
-- Go 1.20 or higher
-- Linux (macOS and Windows support planned — see Roadmap)
+- Go 1.22 or higher (when building from source)
+- Linux, macOS, or Windows
 
 ## Download
 
@@ -28,15 +29,17 @@ Pre-built binaries are available on the [Releases](https://github.com/zemation/s
 
 | Binary | OS | Architecture |
 |---|---|---|
-| sysinfo-linux-amd64 | Linux | x86_64 (64-bit) |
-| sysinfo-linux-arm64 | Linux | ARM64 (Raspberry Pi, etc) |
-| sysinfo-darwin-amd64 | macOS | Intel (x86_64) |
-| sysinfo-darwin-arm64 | macOS | Apple Silicon (M1/M2/M3) |
+| `sysinfo-linux-amd64` | Linux | x86_64 (64-bit) |
+| `sysinfo-linux-arm64` | Linux | ARM64 (Raspberry Pi, etc) |
+| `sysinfo-darwin-amd64` | macOS | Intel (x86_64) |
+| `sysinfo-darwin-arm64` | macOS | Apple Silicon (M1/M2/M3/M4) |
+| `sysinfo-windows-amd64.exe` | Windows | x86_64 (64-bit) |
+| `sysinfo-windows-arm64.exe` | Windows | ARM64 |
 
-### Install from release
+### Install from release (Linux / macOS)
 
 ```bash
-# Download the binary for your architecture
+# Download the binary for your OS and architecture (e.g., linux-amd64 or darwin-arm64)
 curl -LO https://github.com/zemation/sysinfo/releases/latest/download/sysinfo-linux-amd64
 
 # Make it executable
@@ -46,13 +49,29 @@ chmod +x sysinfo-linux-amd64
 sudo mv sysinfo-linux-amd64 /usr/local/bin/sysinfo
 ```
 
+### Install from release (Windows PowerShell)
+
+```powershell
+# Download the binary for Windows (x86_64)
+Invoke-WebRequest -Uri https://github.com/zemation/sysinfo/releases/latest/download/sysinfo-windows-amd64.exe -OutFile sysinfo.exe
+
+# Run sysinfo
+.\sysinfo.exe
+```
+
 ## Build from Source
 
 ```bash
 git clone https://github.com/zemation/sysinfo.git
 cd sysinfo
 go build -o sysinfo main.go
-sudo mv sysinfo /usr/local/bin/
+```
+
+On Windows:
+```powershell
+git clone https://github.com/zemation/sysinfo.git
+cd sysinfo
+go build -o sysinfo.exe main.go
 ```
 
 ## Commands
@@ -61,7 +80,7 @@ sudo mv sysinfo /usr/local/bin/
 |---|---|
 | `sysinfo` | System overview |
 | `sysinfo all` | All information in one output |
-| `sysinfo disk` | Disk usage per mount point |
+| `sysinfo disk` | Disk usage per mount point / drive |
 | `sysinfo processes cpu` | Top processes by CPU usage |
 | `sysinfo processes memory` | Top processes by memory usage |
 | `sysinfo network interfaces` | Network interfaces, IPs, RX/TX stats |
@@ -89,13 +108,14 @@ When running in a terminal, sysinfo color codes usage values automatically:
 | Color | Meaning |
 |---|---|
 | 🟢 Green | Normal — below 70% |
-| 🟡 Yellow | Warning — above 70% |
-| 🔴 Red | Critical — above 90% |
+| 🟡 Yellow | Warning — 70% to 89% |
+| 🔴 Red | Critical — 90% and above |
 
 Color applies to:
-- `sysinfo disk` — USE% column
-- `sysinfo processes cpu` — CPU% column
-- `sysinfo processes memory` — MEM% column
+- `sysinfo disk` — `USE%` column
+- `sysinfo processes cpu` — `CPU%` column
+- `sysinfo processes memory` — `MEM%` column
+- `sysinfo all` — `USE%`, `CPU%`, and `MEM%` columns
 
 Color is automatically disabled when piping output or redirecting to a file so it does not interfere with tools like `jq`.
 
@@ -108,7 +128,7 @@ sysinfo
 # All info at once
 sysinfo all
 
-# Disk usage per mount
+# Disk usage per mount / drive
 sysinfo disk
 
 # Top processes (default 5)
@@ -123,11 +143,12 @@ sysinfo processes memory -c 3
 sysinfo network interfaces
 sysinfo network ports
 
-# Requires sudo for full port ownership output
+# Elevated privileges may be required for full port ownership output
 sudo sysinfo network ports
 
 # JSON output (color disabled automatically)
 sysinfo --json
+sysinfo all --json
 sysinfo disk --json
 sysinfo processes cpu --count 10 --json
 sysinfo network interfaces --json
@@ -141,62 +162,56 @@ sysinfo processes memory --json | jq '.[0]'
 
 ```
 sysinfo/
-├── main.go              # Entry point
+├── main.go                      # Entry point
 ├── cmd/
-│   ├── root.go          # Default sysinfo command
-│   ├── all.go           # sysinfo all
-│   ├── disk.go          # sysinfo disk
-│   ├── processes.go     # sysinfo processes
-│   └── network.go       # sysinfo network
+│   ├── root.go                  # Default sysinfo command
+│   ├── all.go                   # sysinfo all
+│   ├── disk.go                  # sysinfo disk
+│   ├── processes.go             # sysinfo processes
+│   └── network.go               # sysinfo network
 └── system/
-    ├── info.go          # System info functions
-    ├── color.go         # ANSI color output helpers
-    ├── disk.go          # Disk mount functions
-    ├── processes.go     # Process listing and sorting
-    └── network.go       # Network interface and port functions
+    ├── common.go                # Shared cross-platform helpers
+    ├── types.go                 # Shared data structures & JSON tags
+    ├── color.go                 # ANSI color output & column padding helpers
+    ├── color_windows.go         # Windows Virtual Terminal ANSI enablement
+    ├── info_{linux,darwin,windows}.go
+    ├── disk_{linux,darwin,windows}.go
+    ├── gpu_{linux,darwin,windows}.go
+    ├── processes_{linux,darwin,windows}.go
+    └── network_{linux,darwin,windows}.go
 ```
 
 ## Data Sources
 
-| Field | Source |
-|---|---|
-| Host | os.Hostname() |
-| IP | net.InterfaceAddrs() |
-| OS | /etc/os-release |
-| Kernel | /proc/version |
-| Arch | runtime.GOARCH |
-| CPU | /proc/cpuinfo |
-| Memory | /proc/meminfo |
-| Disk | syscall.Statfs |
-| Uptime | /proc/uptime |
-| Load | /proc/loadavg |
-| Network stats | /sys/class/net/[iface]/statistics |
-| Listening ports | /proc/net/tcp, /proc/net/udp |
-| Process info | /proc/[pid]/stat, /proc/[pid]/comm |
+| Field | Linux | macOS (`darwin`) | Windows |
+|---|---|---|---|
+| Host | `os.Hostname()` | `os.Hostname()` | `os.Hostname()` |
+| IP | `net.InterfaceAddrs()` | `net.InterfaceAddrs()` | `net.InterfaceAddrs()` |
+| OS | `/etc/os-release` | `sw_vers` | Registry `CurrentVersion` |
+| Kernel | `/proc/version` | `uname -r` | Registry `CurrentBuildNumber` / `UBR` |
+| Arch | `runtime.GOARCH` | `runtime.GOARCH` | `runtime.GOARCH` |
+| CPU | `/proc/cpuinfo` | `sysctl machdep.cpu` | Registry `CentralProcessor\0` + `runtime.NumCPU()` |
+| Memory | `/proc/meminfo` | `sysctl hw.memsize` + `vm_stat` | `GlobalMemoryStatusEx` (`kernel32.dll`) |
+| Disk | `syscall.Statfs` & `/proc/mounts` | `syscall.Getfsstat` | `GetLogicalDrives` + `GetDiskFreeSpaceExW` |
+| Uptime | `/proc/uptime` | `sysctl kern.boottime` | `GetTickCount64` (`kernel32.dll`) |
+| Load | `/proc/loadavg` | `sysctl vm.loadavg` | `n/a (Windows)` |
+| GPU | `nvidia-smi`, `rocm-smi`, `/sys/class/drm` | `system_profiler SPDisplaysDataType` | `nvidia-smi` / Display Class Registry |
+| Network stats | `/sys/class/net/[iface]/statistics` | `netstat -I [iface] -b` | `GetIfEntry2` (`iphlpapi.dll`) |
+| Listening ports | `/proc/net/{tcp,tcp6,udp,udp6}` + `/proc/[pid]/fd` | `lsof -nP` | `netstat -ano` + Toolhelp32 Snapshot |
+| Process info | `/proc/[pid]/stat`, `/proc/[pid]/comm` | `ps axo pid=,%cpu=,%mem=,comm=` | `CreateToolhelp32Snapshot`, `GetProcessMemoryInfo`, `GetProcessTimes` |
 
 ---
 
 ## Roadmap
 
 ### Cross-Platform Support
-Currently sysinfo is Linux-only. The plan is to add macOS and Windows support using Go build tags — platform-specific files that the compiler picks automatically based on the target OS.
+- [x] **Linux** (`amd64`, `arm64`) — Direct `/proc` and `/sys` virtual filesystem readers
+- [x] **macOS** (`amd64`, `arm64`) — Native `syscall.Getfsstat` and system utilities (`sysctl`, `vm_stat`, `lsof`, `ps`)
+- [x] **Windows** (`amd64`, `arm64`) — Native Win32 API syscalls (`kernel32.dll`, `iphlpapi.dll`, `psapi.dll`) and Windows Registry
 
-```
-system/
-├── info_linux.go       # current implementation
-├── info_darwin.go      # macOS implementation
-└── info_windows.go     # Windows implementation (planned)
-```
-#### Windows
-Windows requires a different approach — WMI (Windows Management Instrumentation) via the `github.com/StackExchange/wmi` package for most system data.
+### Future Improvements
+- [ ] Dedicated `sysinfo gpu` subcommand exposing VRAM usage, driver version, and GPU utilization
+- [ ] Package manager distributions (Homebrew tap for macOS/Linux, Winget / Scoop manifests for Windows)
+- [ ] Live watch / refresh mode (`--watch` / `-w`)
+- [ ] Native Win32 `GetExtendedTcpTable` / `GetExtendedUdpTable` for Windows listening ports
 
-| Feature | Approach |
-|---|---|
-| OS / Kernel | WMI Win32_OperatingSystem |
-| CPU | WMI Win32_Processor |
-| Memory | WMI Win32_OperatingSystem |
-| Disk | syscall.GetDiskFreeSpaceEx |
-| Uptime | WMI Win32_OperatingSystem.LastBootUpTime |
-| Load | Not natively available on Windows |
-| Processes | WMI Win32_Process |
-| Network ports | netstat via WMI or net.tcp registry |
