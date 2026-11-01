@@ -65,34 +65,37 @@ func readStatFile(path string) float64 {
 	return val
 }
 
-func formatBytes(bytes float64) string {
-	if bytes >= 1024*1024*1024 {
-		return fmt.Sprintf("%.1f GB", bytes/1024/1024/1024)
-	} else if bytes >= 1024*1024 {
-		return fmt.Sprintf("%.1f MB", bytes/1024/1024)
-	} else if bytes >= 1024 {
-		return fmt.Sprintf("%.1f KB", bytes/1024)
-	}
-	return fmt.Sprintf("%.0f B", bytes)
+type procSocketOwner struct {
+	pid     string
+	command string
 }
 
 func GetListeningPorts() ([]PortInfo, error) {
+	inodeMap := buildSocketInodeMap()
+	seen := make(map[string]bool)
 	var ports []PortInfo
 
-	tcpPorts, err := parseProcNet("/proc/net/tcp", "TCP")
-	if err == nil {
-		ports = append(ports, tcpPorts...)
+	sources := []struct {
+		path  string
+		proto string
+	}{
+		{"/proc/net/tcp", "TCP"},
+		{"/proc/net/tcp6", "TCP"},
+		{"/proc/net/udp", "UDP"},
+		{"/proc/net/udp6", "UDP"},
 	}
 
-	udpPorts, err := parseProcNet("/proc/net/udp", "UDP")
-	if err == nil {
-		ports = append(ports, udpPorts...)
+	for _, src := range sources {
+		parsed, err := parseProcNet(src.path, src.proto, inodeMap, seen)
+		if err == nil {
+			ports = append(ports, parsed...)
+		}
 	}
 
 	return ports, nil
 }
 
-func parseProcNet(path, proto string) ([]PortInfo, error) {
+func parseProcNet(path, proto string, inodeMap map[string]procSocketOwner, seen map[string]bool) ([]PortInfo, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -110,65 +113,94 @@ func parseProcNet(path, proto string) ([]PortInfo, error) {
 		}
 
 		state := fields[3]
-		if state != "0A" {
+		// TCP listen is 0A (TCP_LISTEN); unconnected bound UDP sockets use 07 (TCP_CLOSE) or 0A
+		if proto == "TCP" && state != "0A" {
+			continue
+		}
+		if proto == "UDP" && state != "07" && state != "0A" {
 			continue
 		}
 
 		localAddr := fields[1]
-		portHex := strings.Split(localAddr, ":")[1]
+		addrParts := strings.Split(localAddr, ":")
+		if len(addrParts) < 2 {
+			continue
+		}
+		portHex := addrParts[len(addrParts)-1]
 		portNum, err := strconv.ParseInt(portHex, 16, 32)
 		if err != nil {
 			continue
 		}
 
+		portStr := strconv.Itoa(int(portNum))
+		key := fmt.Sprintf("%s:%s", proto, portStr)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
 		inode := fields[9]
-		pid, command := findProcessByInode(inode)
+		owner, ok := inodeMap[inode]
+		if !ok {
+			owner = procSocketOwner{pid: "?", command: "?"}
+		}
 
 		ports = append(ports, PortInfo{
-			Port:    strconv.Itoa(int(portNum)),
+			Port:    portStr,
 			Proto:   proto,
 			State:   "LISTEN",
-			PID:     pid,
-			Command: command,
+			PID:     owner.pid,
+			Command: owner.command,
 		})
 	}
 
 	return ports, nil
 }
 
-func findProcessByInode(inode string) (pid, command string) {
+func buildSocketInodeMap() map[string]procSocketOwner {
+	inodeMap := make(map[string]procSocketOwner)
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return "?", "?"
+		return inodeMap
 	}
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
-		if _, err := strconv.Atoi(entry.Name()); err != nil {
+		pid := entry.Name()
+		if _, err := strconv.Atoi(pid); err != nil {
 			continue
 		}
 
-		fdPath := fmt.Sprintf("/proc/%s/fd", entry.Name())
+		fdPath := fmt.Sprintf("/proc/%s/fd", pid)
 		fds, err := os.ReadDir(fdPath)
 		if err != nil {
 			continue
 		}
+
+		var comm string
+		commLoaded := false
 
 		for _, fd := range fds {
 			link, err := os.Readlink(fmt.Sprintf("%s/%s", fdPath, fd.Name()))
 			if err != nil {
 				continue
 			}
-			if strings.Contains(link, fmt.Sprintf("socket:[%s]", inode)) {
-				commBytes, err := os.ReadFile(fmt.Sprintf("/proc/%s/comm", entry.Name()))
-				if err != nil {
-					return entry.Name(), "?"
+			if strings.HasPrefix(link, "socket:[") && strings.HasSuffix(link, "]") {
+				inode := link[8 : len(link)-1]
+				if !commLoaded {
+					commBytes, err := os.ReadFile(fmt.Sprintf("/proc/%s/comm", pid))
+					if err != nil {
+						comm = "?"
+					} else {
+						comm = strings.TrimSpace(string(commBytes))
+					}
+					commLoaded = true
 				}
-				return entry.Name(), strings.TrimSpace(string(commBytes))
+				inodeMap[inode] = procSocketOwner{pid: pid, command: comm}
 			}
 		}
 	}
-	return "?", "?"
+	return inodeMap
 }

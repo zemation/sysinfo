@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -56,16 +55,25 @@ func readProcess(pid string, memTotal float64, totalCPU float64) (Process, error
 		return Process{}, err
 	}
 
-	fields := strings.Fields(string(statBytes))
-	if len(fields) < 24 {
+	statStr := string(statBytes)
+	closeParen := strings.LastIndex(statStr, ")")
+	if closeParen == -1 || closeParen+2 >= len(statStr) {
 		return Process{}, fmt.Errorf("unexpected stat format")
 	}
 
-	utime, _ := strconv.ParseFloat(fields[13], 64)
-	stime, _ := strconv.ParseFloat(fields[14], 64)
+	// Fields after "(comm) ": index 0 is state (field 3 in /proc/pid/stat),
+	// so field 14 (utime) is index 11, field 15 (stime) is index 12,
+	// and field 24 (rss) is index 21.
+	fields := strings.Fields(statStr[closeParen+2:])
+	if len(fields) < 22 {
+		return Process{}, fmt.Errorf("unexpected stat format")
+	}
+
+	utime, _ := strconv.ParseFloat(fields[11], 64)
+	stime, _ := strconv.ParseFloat(fields[12], 64)
 	processCPU := utime + stime
 
-	rss, _ := strconv.ParseFloat(fields[23], 64)
+	rss, _ := strconv.ParseFloat(fields[21], 64)
 	memBytes := rss * 4096
 	memPercent := (memBytes / 1024 / (memTotal)) * 100
 
@@ -116,40 +124,4 @@ func getTotalCPUTime() float64 {
 		}
 	}
 	return 1
-}
-
-func GetTopProcessesByCPU(n int) ([]Process, error) {
-	procs, err := getProcessList()
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(procs, func(i, j int) bool {
-		iVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[i].CPU, "%"), 64)
-		jVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[j].CPU, "%"), 64)
-		return iVal > jVal
-	})
-
-	if len(procs) > n {
-		procs = procs[:n]
-	}
-	return procs, nil
-}
-
-func GetTopProcessesByMemory(n int) ([]Process, error) {
-	procs, err := getProcessList()
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(procs, func(i, j int) bool {
-		iVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[i].Memory, "%"), 64)
-		jVal, _ := strconv.ParseFloat(strings.TrimSuffix(procs[j].Memory, "%"), 64)
-		return iVal > jVal
-	})
-
-	if len(procs) > n {
-		procs = procs[:n]
-	}
-	return procs, nil
 }
