@@ -24,7 +24,7 @@ func Colorize(value string, warn, danger float64) string {
 	if !IsTerminal() {
 		return value
 	}
-	clean := strings.TrimSuffix(strings.TrimSpace(value), "%")
+	clean := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(value), "%"))
 	num, err := strconv.ParseFloat(clean, 64)
 	if err != nil {
 		return value
@@ -44,7 +44,7 @@ func ColorizePadded(value string, width int, warn, danger float64) string {
 	if !IsTerminal() {
 		return padded
 	}
-	clean := strings.TrimSuffix(strings.TrimSpace(value), "%")
+	clean := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(value), "%"))
 	num, err := strconv.ParseFloat(clean, 64)
 	if err != nil {
 		return padded
