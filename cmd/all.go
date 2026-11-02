@@ -10,6 +10,7 @@ import (
 
 type AllInfo struct {
 	System            SystemInfo                `json:"system"`
+	GPUDetails        system.GPUInfo            `json:"gpu_details"`
 	DiskMounts        []system.DiskInfo         `json:"disk_mounts"`
 	NetworkInterfaces []system.NetworkInterface `json:"network_interfaces"`
 	TopCPUProcesses   []system.Process          `json:"top_cpu_processes"`
@@ -45,6 +46,7 @@ var allCmd = &cobra.Command{
 					Load:     system.GetLoadAverage(),
 					GPU:      gpu.Name,
 				},
+				GPUDetails:        gpu,
 				DiskMounts:        disks,
 				NetworkInterfaces: ifaces,
 				TopCPUProcesses:   cpuProcs,
@@ -68,6 +70,14 @@ var allCmd = &cobra.Command{
 		fmt.Println("Uptime: ", system.GetUptime())
 		fmt.Println("Load:   ", system.GetLoadAverage())
 		fmt.Println("GPU:    ", gpu.Name)
+
+		// GPU details
+		fmt.Println("\n=== GPU ===")
+		fmt.Println("Name:          ", gpu.Name)
+		fmt.Println("Driver:        ", gpu.DriverVersion)
+		fmt.Println("Memory Total:  ", gpu.MemoryTotal)
+		fmt.Println("Memory Used:   ", gpu.MemoryUsed)
+		fmt.Println("Utilization:   ", system.Colorize(gpu.Utilization, 70, 90))
 
 		// Disk mounts
 		fmt.Println("\n=== Disk Mounts ===")

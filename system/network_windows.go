@@ -5,18 +5,59 @@ package system
 import (
 	"fmt"
 	"net"
-	"os/exec"
 	"strconv"
-	"strings"
 	"syscall"
 	"unsafe"
 )
 
 var (
-	modIphlpapi        = syscall.NewLazyDLL("iphlpapi.dll")
-	procGetIfEntry2    = modIphlpapi.NewProc("GetIfEntry2")
-	procConvertIdxLuid = modIphlpapi.NewProc("ConvertInterfaceIndexToLuid")
+	modIphlpapi             = syscall.NewLazyDLL("iphlpapi.dll")
+	procGetIfEntry2         = modIphlpapi.NewProc("GetIfEntry2")
+	procConvertIdxLuid      = modIphlpapi.NewProc("ConvertInterfaceIndexToLuid")
+	procGetExtendedTcpTable = modIphlpapi.NewProc("GetExtendedTcpTable")
+	procGetExtendedUdpTable = modIphlpapi.NewProc("GetExtendedUdpTable")
 )
+
+const (
+	afInet                 = 2
+	afInet6                = 23
+	tcpTableOwnerPidListen = 3 // TCP_TABLE_OWNER_PID_LISTENER
+	udpTableOwnerPid       = 1 // UDP_TABLE_OWNER_PID
+	mibTcpStateListen      = 2
+)
+
+type mibTcpRowOwnerPid struct {
+	dwState      uint32
+	dwLocalAddr  uint32
+	dwLocalPort  uint32
+	dwRemoteAddr uint32
+	dwRemotePort uint32
+	dwOwningPid  uint32
+}
+
+type mibTcp6RowOwnerPid struct {
+	ucLocalAddr     [16]byte
+	dwLocalScopeId  uint32
+	dwLocalPort     uint32
+	ucRemoteAddr    [16]byte
+	dwRemoteScopeId uint32
+	dwRemotePort    uint32
+	dwState         uint32
+	dwOwningPid     uint32
+}
+
+type mibUdpRowOwnerPid struct {
+	dwLocalAddr uint32
+	dwLocalPort uint32
+	dwOwningPid uint32
+}
+
+type mibUdp6RowOwnerPid struct {
+	ucLocalAddr    [16]byte
+	dwLocalScopeId uint32
+	dwLocalPort    uint32
+	dwOwningPid    uint32
+}
 
 // mibIfRow2 represents MIB_IF_ROW2 from netioapi.h (1352 bytes on 64-bit Windows)
 // InterfaceLuid is at offset 0 (uint64)
@@ -25,6 +66,11 @@ var (
 // OutOctets is at offset 1280 (uint64)
 type mibIfRow2 struct {
 	data [1352]byte
+}
+
+func ntohs(port uint32) int {
+	p := uint16(port)
+	return int((p>>8)&0xff) | int((p&0xff)<<8)
 }
 
 func GetNetworkInterfaces() ([]NetworkInterface, error) {
@@ -83,69 +129,94 @@ func getInterfaceStats(ifIndex int) (rx, tx string) {
 }
 
 func GetListeningPorts() ([]PortInfo, error) {
-	out, err := exec.Command("netstat", "-ano").Output()
-	if err != nil {
-		return nil, err
-	}
-
 	pidNames := getProcessNameMap()
 	seen := make(map[string]bool)
 	var ports []PortInfo
 
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		fields := strings.Fields(strings.TrimSpace(line))
-		if len(fields) < 4 {
-			continue
-		}
-
-		proto := strings.ToUpper(fields[0])
-		if proto != "TCP" && proto != "UDP" {
-			continue
-		}
-
-		var state, pid string
-		if proto == "TCP" {
-			if len(fields) < 5 || fields[3] != "LISTENING" {
-				continue
-			}
-			state = "LISTEN"
-			pid = fields[4]
-		} else {
-			// UDP lines in netstat -ano: UDP <local> *:* <pid>
-			state = "LISTEN"
-			pid = fields[len(fields)-1]
-		}
-
-		localAddr := fields[1]
-		idx := strings.LastIndex(localAddr, ":")
-		if idx == -1 {
-			continue
-		}
-		portStr := localAddr[idx+1:]
-		if _, err := strconv.Atoi(portStr); err != nil {
-			continue
-		}
-
+	addPort := func(proto string, port int, pid uint32) {
+		portStr := strconv.Itoa(port)
 		key := fmt.Sprintf("%s:%s", proto, portStr)
 		if seen[key] {
-			continue
+			return
 		}
 		seen[key] = true
 
-		command, ok := pidNames[pid]
-		if !ok || command == "" {
+		pidStr := strconv.FormatUint(uint64(pid), 10)
+		command := pidNames[pidStr]
+		if command == "" {
 			command = "?"
 		}
 
 		ports = append(ports, PortInfo{
 			Port:    portStr,
 			Proto:   proto,
-			State:   state,
-			PID:     pid,
+			State:   "LISTEN",
+			PID:     pidStr,
 			Command: command,
 		})
 	}
 
+	// TCP IPv4
+	if buf, err := fetchIpHlpTable(procGetExtendedTcpTable, afInet, tcpTableOwnerPidListen); err == nil && len(buf) >= 4 {
+		count := *(*uint32)(unsafe.Pointer(&buf[0]))
+		rows := unsafe.Slice((*mibTcpRowOwnerPid)(unsafe.Pointer(&buf[4])), count)
+		for _, r := range rows {
+			if r.dwState == mibTcpStateListen {
+				addPort("TCP", ntohs(r.dwLocalPort), r.dwOwningPid)
+			}
+		}
+	}
+
+	// TCP IPv6
+	if buf, err := fetchIpHlpTable(procGetExtendedTcpTable, afInet6, tcpTableOwnerPidListen); err == nil && len(buf) >= 4 {
+		count := *(*uint32)(unsafe.Pointer(&buf[0]))
+		rows := unsafe.Slice((*mibTcp6RowOwnerPid)(unsafe.Pointer(&buf[4])), count)
+		for _, r := range rows {
+			if r.dwState == mibTcpStateListen {
+				addPort("TCP", ntohs(r.dwLocalPort), r.dwOwningPid)
+			}
+		}
+	}
+
+	// UDP IPv4
+	if buf, err := fetchIpHlpTable(procGetExtendedUdpTable, afInet, udpTableOwnerPid); err == nil && len(buf) >= 4 {
+		count := *(*uint32)(unsafe.Pointer(&buf[0]))
+		rows := unsafe.Slice((*mibUdpRowOwnerPid)(unsafe.Pointer(&buf[4])), count)
+		for _, r := range rows {
+			addPort("UDP", ntohs(r.dwLocalPort), r.dwOwningPid)
+		}
+	}
+
+	// UDP IPv6
+	if buf, err := fetchIpHlpTable(procGetExtendedUdpTable, afInet6, udpTableOwnerPid); err == nil && len(buf) >= 4 {
+		count := *(*uint32)(unsafe.Pointer(&buf[0]))
+		rows := unsafe.Slice((*mibUdp6RowOwnerPid)(unsafe.Pointer(&buf[4])), count)
+		for _, r := range rows {
+			addPort("UDP", ntohs(r.dwLocalPort), r.dwOwningPid)
+		}
+	}
+
 	return ports, nil
+}
+
+func fetchIpHlpTable(proc *syscall.LazyProc, family uintptr, tableClass uintptr) ([]byte, error) {
+	var size uint32
+	proc.Call(0, uintptr(unsafe.Pointer(&size)), 1, family, tableClass, 0)
+	if size == 0 {
+		return nil, fmt.Errorf("empty table")
+	}
+
+	buf := make([]byte, size)
+	ret, _, err := proc.Call(
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(unsafe.Pointer(&size)),
+		1,
+		family,
+		tableClass,
+		0,
+	)
+	if ret != 0 {
+		return nil, err
+	}
+	return buf, nil
 }

@@ -36,6 +36,12 @@ Pre-built binaries are available on the [Releases](https://github.com/zemation/s
 | `sysinfo-windows-amd64.exe` | Windows | x86_64 (64-bit) |
 | `sysinfo-windows-arm64.exe` | Windows | ARM64 |
 
+### Install with Go (All Platforms)
+
+```bash
+go install github.com/zemation/sysinfo@latest
+```
+
 ### Install from release (Linux / macOS)
 
 ```bash
@@ -52,11 +58,11 @@ sudo mv sysinfo-linux-amd64 /usr/local/bin/sysinfo
 ### Install from release (Windows PowerShell)
 
 ```powershell
-# Download the binary for Windows (x86_64)
-Invoke-WebRequest -Uri https://github.com/zemation/sysinfo/releases/latest/download/sysinfo-windows-amd64.exe -OutFile sysinfo.exe
+# Download the binary directly into WindowsApps (already on your user PATH)
+Invoke-WebRequest -Uri https://github.com/zemation/sysinfo/releases/latest/download/sysinfo-windows-amd64.exe -OutFile "$env:LOCALAPPDATA\Microsoft\WindowsApps\sysinfo.exe"
 
-# Run sysinfo
-.\sysinfo.exe
+# Run sysinfo from anywhere
+sysinfo
 ```
 
 ## Build from Source
@@ -80,6 +86,7 @@ go build -o sysinfo.exe main.go
 |---|---|
 | `sysinfo` | System overview |
 | `sysinfo all` | All information in one output |
+| `sysinfo gpu` | GPU model, driver version, VRAM usage, and utilization |
 | `sysinfo disk` | Disk usage per mount point / drive |
 | `sysinfo processes cpu` | Top processes by CPU usage |
 | `sysinfo processes memory` | Top processes by memory usage |
@@ -92,7 +99,9 @@ go build -o sysinfo.exe main.go
 Available on all commands:
 
 ```
---json, -j    Output as JSON
+--json, -j        Output as JSON
+--watch, -w       Continuously refresh output in real time
+--interval, -i    Refresh interval in seconds when using --watch (default 2)
 ```
 
 ### Command Flags
@@ -113,9 +122,10 @@ When running in a terminal, sysinfo color codes usage values automatically:
 
 Color applies to:
 - `sysinfo disk` — `USE%` column
+- `sysinfo gpu` — `Utilization` value
 - `sysinfo processes cpu` — `CPU%` column
 - `sysinfo processes memory` — `MEM%` column
-- `sysinfo all` — `USE%`, `CPU%`, and `MEM%` columns
+- `sysinfo all` — `USE%`, `Utilization`, `CPU%`, and `MEM%` values
 
 Color is automatically disabled when piping output or redirecting to a file so it does not interfere with tools like `jq`.
 
@@ -127,6 +137,14 @@ sysinfo
 
 # All info at once
 sysinfo all
+
+# GPU details, VRAM, and utilization
+sysinfo gpu
+
+# Live watch mode (refreshes every 2s by default, or custom interval with -i)
+sysinfo --watch
+sysinfo gpu -w -i 1
+sysinfo processes cpu -w
 
 # Disk usage per mount / drive
 sysinfo disk
@@ -143,18 +161,20 @@ sysinfo processes memory -c 3
 sysinfo network interfaces
 sysinfo network ports
 
-# Elevated privileges may be required for full port ownership output
+# Elevated privileges may be required for full port ownership output on Linux/macOS
 sudo sysinfo network ports
 
 # JSON output (color disabled automatically)
 sysinfo --json
 sysinfo all --json
+sysinfo gpu --json
 sysinfo disk --json
 sysinfo processes cpu --count 10 --json
 sysinfo network interfaces --json
 
 # Pipe JSON to jq
 sysinfo --json | jq '.cpu'
+sysinfo gpu --json | jq '.utilization'
 sysinfo processes memory --json | jq '.[0]'
 ```
 
@@ -164,8 +184,9 @@ sysinfo processes memory --json | jq '.[0]'
 sysinfo/
 ├── main.go                      # Entry point
 ├── cmd/
-│   ├── root.go                  # Default sysinfo command
+│   ├── root.go                  # Default sysinfo command & --watch loop
 │   ├── all.go                   # sysinfo all
+│   ├── gpu.go                   # sysinfo gpu
 │   ├── disk.go                  # sysinfo disk
 │   ├── processes.go             # sysinfo processes
 │   └── network.go               # sysinfo network
@@ -197,7 +218,7 @@ sysinfo/
 | Load | `/proc/loadavg` | `sysctl vm.loadavg` | `n/a (Windows)` |
 | GPU | `nvidia-smi`, `rocm-smi`, `/sys/class/drm` | `system_profiler SPDisplaysDataType` | `nvidia-smi` / Display Class Registry |
 | Network stats | `/sys/class/net/[iface]/statistics` | `netstat -I [iface] -b` | `GetIfEntry2` (`iphlpapi.dll`) |
-| Listening ports | `/proc/net/{tcp,tcp6,udp,udp6}` + `/proc/[pid]/fd` | `lsof -nP` | `netstat -ano` + Toolhelp32 Snapshot |
+| Listening ports | `/proc/net/{tcp,tcp6,udp,udp6}` + `/proc/[pid]/fd` | `lsof -nP` | `GetExtendedTcpTable` & `GetExtendedUdpTable` (`iphlpapi.dll`) |
 | Process info | `/proc/[pid]/stat`, `/proc/[pid]/comm` | `ps axo pid=,%cpu=,%mem=,comm=` | `CreateToolhelp32Snapshot`, `GetProcessMemoryInfo`, `GetProcessTimes` |
 
 ---
@@ -209,9 +230,10 @@ sysinfo/
 - [x] **macOS** (`amd64`, `arm64`) — Native `syscall.Getfsstat` and system utilities (`sysctl`, `vm_stat`, `lsof`, `ps`)
 - [x] **Windows** (`amd64`, `arm64`) — Native Win32 API syscalls (`kernel32.dll`, `iphlpapi.dll`, `psapi.dll`) and Windows Registry
 
-### Future Improvements
-- [ ] Dedicated `sysinfo gpu` subcommand exposing VRAM usage, driver version, and GPU utilization
+### Features & Enhancements
+- [x] Dedicated `sysinfo gpu` subcommand exposing VRAM usage, driver version, and GPU utilization
+- [x] Live watch / refresh mode (`--watch` / `-w` and `--interval` / `-i`)
+- [x] Native Win32 `GetExtendedTcpTable` / `GetExtendedUdpTable` for Windows listening ports
 - [ ] Package manager distributions (Homebrew tap for macOS/Linux, Winget / Scoop manifests for Windows)
-- [ ] Live watch / refresh mode (`--watch` / `-w`)
-- [ ] Native Win32 `GetExtendedTcpTable` / `GetExtendedUdpTable` for Windows listening ports
-
+- [ ] Real-time delta CPU usage sampling for processes (`--sample` flag)
+- [ ] Temperature & sensor telemetry (`sysinfo sensors`)
