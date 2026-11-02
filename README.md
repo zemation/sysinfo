@@ -230,10 +230,16 @@ sysinfo/
 - [x] **macOS** (`amd64`, `arm64`) — Native `syscall.Getfsstat` and system utilities (`sysctl`, `vm_stat`, `lsof`, `ps`)
 - [x] **Windows** (`amd64`, `arm64`) — Native Win32 API syscalls (`kernel32.dll`, `iphlpapi.dll`, `psapi.dll`) and Windows Registry
 
-### Features & Enhancements
+### Shipped Enhancements
 - [x] Dedicated `sysinfo gpu` subcommand exposing VRAM usage, driver version, and GPU utilization
 - [x] Live watch / refresh mode (`--watch` / `-w` and `--interval` / `-i`)
 - [x] Native Win32 `GetExtendedTcpTable` / `GetExtendedUdpTable` for Windows listening ports
-- [ ] Package manager distributions (Homebrew tap for macOS/Linux, Winget / Scoop manifests for Windows)
-- [ ] Real-time delta CPU usage sampling for processes (`--sample` flag)
-- [ ] Temperature & sensor telemetry (`sysinfo sensors`)
+
+### Planned Down the Road
+- [ ] **Real-Time Delta Sampling**: Two-point snapshot sampling for instantaneous per-process CPU %, live network throughput rates (`MB/s` or `Mbps` RX/TX), and real-time Windows CPU load % via `GetSystemTimes`
+- [ ] **Multi-GPU & Extended GPU Telemetry**: Enumerate all adapters (`[]GPUInfo` for iGPU + dGPU setups), add GPU temperature, power draw (Watts), fan speed %, and registry-based VRAM reporting for AMD/Intel GPUs on Windows
+- [ ] **Hardware Sensors & Battery Health (`sysinfo sensors` / `sysinfo battery`)**: CPU/system temperatures and fan speeds via Linux `hwmon`/`thermal_zone`, macOS `pmset`/`ioreg`, and laptop battery health/runtime via Windows `GetSystemPowerStatus`
+- [ ] **Version Metadata & Self-Update (`sysinfo version` / `sysinfo upgrade`)**: Build-time `-ldflags` version/commit injection, binary stripping (`-s -w`), and in-place binary upgrades from GitHub Releases
+- [ ] **Package Manager Distribution & Checksums**: Automated `checksums.txt` (`SHA256`) release assets, Homebrew tap (`brew install`), Windows Scoop bucket, and Winget manifest (`winget install`)
+- [ ] **Automated Unit & Cross-OS Integration Tests**: Unit tests for `/proc`, `sysctl`, and Win32 parsers plus live binary execution checks across Linux, macOS, and Windows GitHub Actions runners
+- [ ] **Healthcheck & Threshold Alerting (`sysinfo check`)**: Configurable warning/critical thresholds (e.g., `--disk 90 --mem 85 --cpu 90`) returning non-zero exit codes for cron jobs, CI pipelines, and server monitoring scripts
